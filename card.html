@@ -3,21 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> </title> <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <title> </title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        body {
-            background-color: #ffffff; /* 完全に真っ白 */
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
+        body { background-color: #ffffff; margin: 0; padding: 0; overflow: hidden; }
     </style>
 </head>
 <body>
 
 <script>
-    // 提供いただいたFirebaseの設定
     const firebaseConfig = {
         apiKey: "AIzaSyDviyxxPk0ImXKBqClAwijH4jb_gYGR3rI",
         authDomain: "ozo1111.firebaseapp.com",
@@ -33,25 +28,32 @@
 
     (function() {
         try {
-            // お客さんのスマホ内の来店回数を読み込んで+1
-            let count = parseInt(localStorage.getItem('v_count')) || 0;
-            count++;
-            localStorage.setItem('v_count', count);
+            // URLに ?action=reset が付いているかチェック
+            const urlParams = new URLSearchParams(window.location.search);
+            const isReset = urlParams.get('action') === 'reset';
 
-            // お店の端末へデータを送信
+            let count = 0;
+
+            if (isReset) {
+                // 【リセット処理】スマホのデータを消して0（次回1回目になる状態）にする
+                localStorage.removeItem('v_count');
+                count = 0; 
+            } else {
+                // 【通常処理】カウントアップ
+                count = parseInt(localStorage.getItem('v_count')) || 0;
+                count++;
+                localStorage.setItem('v_count', count);
+            }
+
+            // Firebaseへ報告
             database.ref('latest_scan').set({
                 count: count,
                 timestamp: Date.now()
             }).then(() => {
-                // 送信完了後、可能であれば自動でタブを閉じる
                 window.close();
-            }).catch((error) => {
-                // エラー時も何も表示しない
             });
 
-        } catch (e) {
-            // エラー時も何も表示しない
-        }
+        } catch (e) { }
     })();
 </script>
 </body>
