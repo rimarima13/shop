@@ -20,18 +20,17 @@
             position: relative;
         }
 
-        /* 2周目以降用の水玉模様（ドット背景）を入れるための透明な膜 */
+        /* 2周目以降用の水玉模様 */
         body::before {
             content: "";
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-image: radial-gradient(rgba(0, 0, 0, 0.1) 20%, transparent 20%);
-            background-size: 30px 30px; /* 水玉の間隔 */
-            opacity: 0; /* 最初（1周目）は透明にして隠す */
+            background-image: radial-gradient(rgba(0, 0, 0, 0.08) 20%, transparent 20%);
+            background-size: 30px 30px; 
+            opacity: 0; 
             transition: opacity 0.4s;
             z-index: -1;
         }
-        /* 2周目以降にこれを付与して水玉を浮き上がらせる */
         body.dot-pattern::before {
             opacity: 1;
         }
@@ -55,13 +54,11 @@
             display: none; 
         }
         #lap-display {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             font-weight: bold;
             margin: 0;
-            color: #6c757d;
         }
         
-        /* 回数表示エリアの調整 */
         .count-wrapper {
             display: flex;
             align-items: center;
@@ -74,10 +71,9 @@
             margin: 0; 
             font-weight: bold; 
         }
-        /* 花柄マークのスタイル */
         .flower {
             font-size: 3.5rem;
-            display: none; /* 最初は隠す */
+            display: none; 
             animation: pop 0.5s ease;
         }
         @keyframes pop {
@@ -196,43 +192,50 @@
         { bg: "#D9E1F2", text: "#1f4e78" }  // 10回目：紺
     ];
 
+    // リアルタイム通信の監視
     database.ref('latest_scan').on('value', (snapshot) => {
         const data = snapshot.val();
+        // 5秒以内の有効なデータのみ処理
         if (data && data.timestamp > (Date.now() - 5000)) { 
-            if (data.totalCount === 0) {
+            // データが正常に取得できなかった場合の安全対策
+            let total = data.totalCount !== undefined ? data.totalCount : 1;
+            let lap = data.lap !== undefined ? data.lap : 1;
+            let current = data.currentCount !== undefined ? data.currentCount : 1;
+
+            // もしリセット信号(totalが0)なら1回目として強制表示
+            if (total === 0) {
                 showCountScreen(1, 1, 1);
             } else {
-                showCountScreen(data.totalCount, data.lap, data.currentCount);
+                showCountScreen(total, lap, current);
             }
         }
     });
 
     function showCountScreen(total, lap, current) {
-        document.getElementById('welcome-message').style.display = 'none';
+        document.getElementById('welcome-message').style.style.display = 'none';
         document.getElementById('qrcode-area').style.display = 'none';
 
         document.getElementById('count-area').style.display = 'block';
         document.getElementById('reset-btn').style.display = 'inline-block';
         document.getElementById('clear-btn').style.display = 'inline-block';
+        document.getElementById('reset-btn').innerText = "次の案内へ進む";
 
-        // 周回数と現在の回数を表示
+        // 周回数と回数の書き換え
         document.getElementById('lap-display').innerText = lap + "周目 (通算 " + total + " 回目)";
         document.getElementById('count-display').innerText = current + "回目";
 
-        // 1〜10回目に応じた色を適用
+        // 配色切り替え
         let colorIndex = (current - 1) % STAGE_COLORS.length;
+        if(colorIndex < 0) colorIndex = 0;
         document.body.style.backgroundColor = STAGE_COLORS[colorIndex].bg;
         document.body.style.color = STAGE_COLORS[colorIndex].text;
-        document.getElementById('lap-display').style.color = STAGE_COLORS[colorIndex].text;
 
-        // 【新機能】2周目以降の特別演出
+        // 2周目以降の演出（水玉 ＆ 🌸）
         const flowers = document.querySelectorAll('.flower');
         if (lap >= 2) {
-            // 2周目以降は水玉模様を出し、花柄（🌸）を表示する
             document.body.classList.add('dot-pattern');
             flowers.forEach(el => el.style.display = 'inline-block');
         } else {
-            // 1周目は水玉も花柄も隠す
             document.body.classList.remove('dot-pattern');
             flowers.forEach(el => el.style.display = 'none');
         }
@@ -249,7 +252,6 @@
         document.getElementById('reset-btn').style.display = 'none';
         document.getElementById('clear-btn').style.display = 'none';
 
-        // 背景の水玉や花を完全に消して初期状態に戻す
         document.body.classList.remove('dot-pattern');
         const flowers = document.querySelectorAll('.flower');
         flowers.forEach(el => el.style.display = 'none');
@@ -271,9 +273,7 @@
         document.getElementById('reset-btn').innerText = "キャンセルして戻る";
         document.getElementById('reset-btn').style.display = 'inline-block';
 
-        // リセット画面では水玉を消す
         document.body.classList.remove('dot-pattern');
-
         document.body.style.backgroundColor = '#fff3cd'; 
         document.body.style.color = '#664d03';
     }

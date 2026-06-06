@@ -28,32 +28,64 @@
 
     (function() {
         try {
-            // URLに ?action=reset が付いているかチェック
             const urlParams = new URLSearchParams(window.location.search);
             const isReset = urlParams.get('action') === 'reset';
 
-            let count = 0;
+            // 【超安全対策】新旧すべてのローカルストレージデータを一回きれいに取得する
+            let oldWeight = localStorage.getItem('v_count');
+            let newWeight = localStorage.getItem('v_total_count');
+            
+            let totalCount = 0;
 
-            if (isReset) {
-                // 【リセット処理】スマホのデータを消して0（次回1回目になる状態）にする
-                localStorage.removeItem('v_count');
-                count = 0; 
+            // もしスマホ内に古いデータ（v_count）だけが残っていたら自動で引き継いで消去
+            if (oldWeight && !newWeight) {
+                totalCount = parseInt(oldWeight) || 0;
+                localStorage.removeItem('v_count'); // 古いゴミデータは消す
             } else {
-                // 【通常処理】カウントアップ
-                count = parseInt(localStorage.getItem('v_count')) || 0;
-                count++;
-                localStorage.setItem('v_count', count);
+                totalCount = parseInt(newWeight) || 0;
             }
 
-            // Firebaseへ報告
+            if (isReset) {
+                // 強制リセット処理（すべての保存データを全消去）
+                localStorage.removeItem('v_count');
+                localStorage.removeItem('v_total_count');
+                
+                database.ref('latest_scan').set({
+                    totalCount: 0,
+                    lap: 1,
+                    currentCount: 0,
+                    timestamp: Date.now()
+                }).then(() => { window.close(); });
+                return;
+            }
+
+            // カウントアップ
+            totalCount++;
+            localStorage.setItem('v_total_count', totalCount);
+
+            // 10回ごとの周回・現在の回数を精密計算
+            let lap = Math.floor((totalCount - 1) / 10) + 1;
+            let currentCount = (totalCount - 1) % 10 + 1;
+
+            // Firebaseへ送信
             database.ref('latest_scan').set({
-                count: count,
+                totalCount: totalCount,
+                lap: lap,
+                currentCount: currentCount,
                 timestamp: Date.now()
             }).then(() => {
                 window.close();
             });
 
-        } catch (e) { }
+        } catch (e) {
+            // 万が一エラーが出てもFirebaseに最低限のデータを送ってundefinedを防ぐ
+            database.ref('latest_scan').set({
+                totalCount: 1,
+                lap: 1,
+                currentCount: 1,
+                timestamp: Date.now()
+            }).then(() => { window.close(); });
+        }
     })();
 </script>
 </body>
