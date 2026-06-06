@@ -15,9 +15,27 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             height: 100vh; 
             transition: background-color 0.4s, color 0.4s;
-            background-color: #f8f9fa; /* 最初の画面は薄いグレー */
+            background-color: #f8f9fa; 
             color: #212529;
+            position: relative;
         }
+
+        /* 2周目以降用の水玉模様（ドット背景）を入れるための透明な膜 */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: radial-gradient(rgba(0, 0, 0, 0.1) 20%, transparent 20%);
+            background-size: 30px 30px; /* 水玉の間隔 */
+            opacity: 0; /* 最初（1周目）は透明にして隠す */
+            transition: opacity 0.4s;
+            z-index: -1;
+        }
+        /* 2周目以降にこれを付与して水玉を浮き上がらせる */
+        body.dot-pattern::before {
+            opacity: 1;
+        }
+
         .box {
             background: rgba(255, 255, 255, 0.95); 
             padding: 40px; 
@@ -25,20 +43,48 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
             min-width: 340px;
             box-sizing: border-box;
+            z-index: 1;
         }
         #welcome-message {
             font-size: 1.8rem;
             font-weight: bold;
             margin: 0 0 30px 0;
+            white-space: pre-wrap;
         }
         #count-area {
             display: none; 
         }
+        #lap-display {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin: 0;
+            color: #6c757d;
+        }
+        
+        /* 回数表示エリアの調整 */
+        .count-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
         h1 { 
             font-size: 5rem; 
-            margin: 0 0 10px 0; 
+            margin: 0; 
             font-weight: bold; 
         }
+        /* 花柄マークのスタイル */
+        .flower {
+            font-size: 3.5rem;
+            display: none; /* 最初は隠す */
+            animation: pop 0.5s ease;
+        }
+        @keyframes pop {
+            0% { transform: scale(0); }
+            100% { transform: scale(1); }
+        }
+
         .sub-text { 
             font-size: 1.6rem; 
             margin: 0 0 30px 0; 
@@ -55,7 +101,6 @@
             border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        /* ボタン全体のスタイル */
         .btn-group {
             display: flex;
             flex-direction: column;
@@ -77,13 +122,11 @@
         button:active {
             transform: scale(0.95);
         }
-        /* 次に進むボタン（黒） */
         #reset-btn {
             display: none;
             background-color: #212529;
             color: #fff;
         }
-        /* 回数リセットボタン（赤） */
         #clear-btn {
             display: none;
             background-color: #dc3545;
@@ -97,7 +140,12 @@
     <div id="welcome-message">QRコードを<br>スキャンしてください</div>
 
     <div id="count-area">
-        <h1 id="count-display">1回目</h1>
+        <p id="lap-display">1周目</p>
+        <div class="count-wrapper">
+            <span class="flower">🌸</span>
+            <h1 id="count-display">1回目</h1>
+            <span class="flower">🌸</span>
+        </div>
         <p class="sub-text">のご来店</p>
     </div>
 
@@ -126,39 +174,40 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // URLの解析とQRコード生成の準備
     const currentUrl = window.location.href;
     const baseUrl = currentUrl.substring(0, currentUrl.lastIndexOf('/'));
     const normalUrl = baseUrl + '/card.html';
-    const resetUrl = baseUrl + '/card.html?action=reset'; // リセット用URL
+    const resetUrl = baseUrl + '/card.html?action=reset'; 
 
-    // 最初は通常QRを生成
     const qrcodeContainer = document.getElementById("qrcode");
     let qrGenerator = new QRCode(qrcodeContainer, { text: normalUrl, width: 220, height: 220 });
 
+    // 1〜10回目に応じた背景色・文字色
     const STAGE_COLORS = [
-        { bg: "#D1E7DD", text: "#0f5132" }, // 1回目
-        { bg: "#CFF4FC", text: "#055160" }, // 2回目
-        { bg: "#FFF3CD", text: "#664d03" }, // 3回目
-        { bg: "#F8D7DA", text: "#842029" }, // 4回目
-        { bg: "#E2D9F3", text: "#563d7c" }  // 5回目
+        { bg: "#D1E7DD", text: "#0f5132" }, // 1回目：緑
+        { bg: "#CFF4FC", text: "#055160" }, // 2回目：青
+        { bg: "#FFF3CD", text: "#664d03" }, // 3回目：黄
+        { bg: "#F8D7DA", text: "#842029" }, // 4回目：赤
+        { bg: "#E2D9F3", text: "#563d7c" }, // 5回目：紫
+        { bg: "#E0E0E0", text: "#333333" }, // 6回目：グレー
+        { bg: "#FCE4D6", text: "#c65911" }, // 7回目：オレンジ
+        { bg: "#E2EFDA", text: "#375623" }, // 8回目：薄緑
+        { bg: "#FFF2CC", text: "#7f6000" }, // 9回目：濃い黄
+        { bg: "#D9E1F2", text: "#1f4e78" }  // 10回目：紺
     ];
 
-    // Firebaseのデータ監視
     database.ref('latest_scan').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.timestamp > (Date.now() - 5000)) { 
-            if (data.count === 0) {
-                // お客さん側がリセット処理を通過したら、お店の画面を自動で1回目の表示にする
-                showCountScreen(1);
+            if (data.totalCount === 0) {
+                showCountScreen(1, 1, 1);
             } else {
-                showCountScreen(data.count);
+                showCountScreen(data.totalCount, data.lap, data.currentCount);
             }
         }
     });
 
-    // スキャンされた時の画面切り替え
-    function showCountScreen(count) {
+    function showCountScreen(total, lap, current) {
         document.getElementById('welcome-message').style.display = 'none';
         document.getElementById('qrcode-area').style.display = 'none';
 
@@ -166,16 +215,30 @@
         document.getElementById('reset-btn').style.display = 'inline-block';
         document.getElementById('clear-btn').style.display = 'inline-block';
 
-        document.getElementById('count-display').innerText = count + "回目";
+        // 周回数と現在の回数を表示
+        document.getElementById('lap-display').innerText = lap + "周目 (通算 " + total + " 回目)";
+        document.getElementById('count-display').innerText = current + "回目";
 
-        let colorIndex = (count - 1) % STAGE_COLORS.length;
+        // 1〜10回目に応じた色を適用
+        let colorIndex = (current - 1) % STAGE_COLORS.length;
         document.body.style.backgroundColor = STAGE_COLORS[colorIndex].bg;
         document.body.style.color = STAGE_COLORS[colorIndex].text;
+        document.getElementById('lap-display').style.color = STAGE_COLORS[colorIndex].text;
+
+        // 【新機能】2周目以降の特別演出
+        const flowers = document.querySelectorAll('.flower');
+        if (lap >= 2) {
+            // 2周目以降は水玉模様を出し、花柄（🌸）を表示する
+            document.body.classList.add('dot-pattern');
+            flowers.forEach(el => el.style.display = 'inline-block');
+        } else {
+            // 1周目は水玉も花柄も隠す
+            document.body.classList.remove('dot-pattern');
+            flowers.forEach(el => el.style.display = 'none');
+        }
     }
 
-    // 次の案内へ進む（通常の初期化）
     function resetToHome() {
-        // QRコードを通常URLに戻す
         qrGenerator.clear();
         qrGenerator.makeCode(normalUrl);
 
@@ -186,28 +249,32 @@
         document.getElementById('reset-btn').style.display = 'none';
         document.getElementById('clear-btn').style.display = 'none';
 
+        // 背景の水玉や花を完全に消して初期状態に戻す
+        document.body.classList.remove('dot-pattern');
+        const flowers = document.querySelectorAll('.flower');
+        flowers.forEach(el => el.style.display = 'none');
+
         document.body.style.backgroundColor = '#f8f9fa';
         document.body.style.color = '#212529';
     }
 
-    // 「回数をリセット」を押した時の処理
     function triggerResetMode() {
-        // QRコードの中身を「リセット用URL」に書き換えて再表示する
         qrGenerator.clear();
         qrGenerator.makeCode(resetUrl);
 
-        // 画面を「リセット用スキャン待ち」の見た目に変える
         document.getElementById('welcome-message').innerText = "【リセット用】\nもう一度スキャンさせてください";
         document.getElementById('welcome-message').style.display = 'block';
         document.getElementById('qrcode-area').style.display = 'block';
         
         document.getElementById('count-area').style.display = 'none';
         document.getElementById('clear-btn').style.display = 'none';
-        // 「戻る」ための中央ボタンだけ残す
         document.getElementById('reset-btn').innerText = "キャンセルして戻る";
         document.getElementById('reset-btn').style.display = 'inline-block';
 
-        document.body.style.backgroundColor = '#fff3cd'; // 警告っぽい黄色
+        // リセット画面では水玉を消す
+        document.body.classList.remove('dot-pattern');
+
+        document.body.style.backgroundColor = '#fff3cd'; 
         document.body.style.color = '#664d03';
     }
 </script>
