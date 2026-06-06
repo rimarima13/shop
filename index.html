@@ -35,6 +35,27 @@
             opacity: 1;
         }
 
+        /* 【新設】画面右上のシステム再起動ボタン */
+        #system-reload-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 8px 15px;
+            font-size: 0.9rem;
+            background-color: #6c757d;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            opacity: 0.6;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: auto; /* グループボタンと連動させない */
+        }
+        #system-reload-btn:hover {
+            opacity: 1;
+        }
+
         .box {
             background: rgba(255, 255, 255, 0.95); 
             padding: 40px; 
@@ -132,6 +153,8 @@
 </head>
 <body>
 
+<button id="system-reload-btn" onclick="systemRestart()">⚙️ 再起動</button>
+
 <div class="box">
     <div id="welcome-message">QRコードを<br>スキャンしてください</div>
 
@@ -168,7 +191,7 @@
     };
 
     firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    let database = firebase.database();
 
     const currentUrl = window.location.href;
     const baseUrl = currentUrl.substring(0, currentUrl.lastIndexOf('/'));
@@ -178,38 +201,41 @@
     const qrcodeContainer = document.getElementById("qrcode");
     let qrGenerator = new QRCode(qrcodeContainer, { text: normalUrl, width: 220, height: 220 });
 
-    // 1〜10回目に応じた背景色・文字色
     const STAGE_COLORS = [
-        { bg: "#D1E7DD", text: "#0f5132" }, // 1回目：緑
-        { bg: "#CFF4FC", text: "#055160" }, // 2回目：青
-        { bg: "#FFF3CD", text: "#664d03" }, // 3回目：黄
-        { bg: "#F8D7DA", text: "#842029" }, // 4回目：赤
-        { bg: "#E2D9F3", text: "#563d7c" }, // 5回目：紫
-        { bg: "#E0E0E0", text: "#333333" }, // 6回目：グレー
-        { bg: "#FCE4D6", text: "#c65911" }, // 7回目：オレンジ
-        { bg: "#E2EFDA", text: "#375623" }, // 8回目：薄緑
-        { bg: "#FFF2CC", text: "#7f6000" }, // 9回目：濃い黄
-        { bg: "#D9E1F2", text: "#1f4e78" }  // 10回目：紺
+        { bg: "#D1E7DD", text: "#0f5132" }, 
+        { bg: "#CFF4FC", text: "#055160" }, 
+        { bg: "#FFF3CD", text: "#664d03" }, 
+        { bg: "#F8D7DA", text: "#842029" }, 
+        { bg: "#E2D9F3", text: "#563d7c" }, 
+        { bg: "#E0E0E0", text: "#333333" }, 
+        { bg: "#FCE4D6", text: "#c65911" }, 
+        { bg: "#E2EFDA", text: "#375623" }, 
+        { bg: "#FFF2CC", text: "#7f6000" }, 
+        { bg: "#D9E1F2", text: "#1f4e78" }  
     ];
 
-    // リアルタイム通信の監視
-    database.ref('latest_scan').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.timestamp > (Date.now() - 5000)) { 
-            let total = data.totalCount !== undefined ? data.totalCount : 1;
-            let lap = data.lap !== undefined ? data.lap : 1;
-            let current = data.currentCount !== undefined ? data.currentCount : 1;
+    // 通信監視の開始関数
+    function startListening() {
+        database.ref('latest_scan').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.timestamp > (Date.now() - 5000)) { 
+                let total = data.totalCount !== undefined ? data.totalCount : 1;
+                let lap = data.lap !== undefined ? data.lap : 1;
+                let current = data.currentCount !== undefined ? data.currentCount : 1;
 
-            if (total === 0) {
-                showCountScreen(1, 1, 1);
-            } else {
-                showCountScreen(total, lap, current);
+                if (total === 0) {
+                    showCountScreen(1, 1, 1);
+                } else {
+                    showCountScreen(total, lap, current);
+                }
             }
-        }
-    });
+        });
+    }
+
+    // 最初に監視を起動
+    startListening();
 
     function showCountScreen(total, lap, current) {
-        // 【修正箇所】style.style になっていたタイポを style のみに綺麗に直しました
         document.getElementById('welcome-message').style.display = 'none';
         document.getElementById('qrcode-area').style.display = 'none';
 
@@ -272,6 +298,33 @@
         document.body.classList.remove('dot-pattern');
         document.body.style.backgroundColor = '#fff3cd'; 
         document.body.style.color = '#664d03';
+    }
+
+    /* 【新機能】ワンタップシステム再起動処理 */
+    function systemRestart() {
+        // 1. ボタンのテキストを一瞬「再起動中...」にする
+        const btn = document.getElementById('system-reload-btn');
+        btn.innerText = "⏳ 再起動中...";
+        btn.style.opacity = "1";
+
+        try {
+            // 2. Firebaseの通信を一度完全に切断して、ゴミデータをクリア
+            database.ref('latest_scan').off();
+            
+            // 3. 画面の見た目を完全に初期待機状態に戻す
+            resetToHome();
+
+            // 4. 0.5秒後にFirebaseと再接続して監視をスタート
+            setTimeout(() => {
+                startListening();
+                btn.innerText = "⚙️ 再起動";
+                btn.style.opacity = "0.6";
+            }, 500);
+
+        } catch(e) {
+            // 万が一の時は最終手段としてブラウザ丸ごと強制リロード
+            window.location.reload();
+        }
     }
 </script>
 </body>
