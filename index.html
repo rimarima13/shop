@@ -195,14 +195,11 @@
     // リアルタイム通信の監視
     database.ref('latest_scan').on('value', (snapshot) => {
         const data = snapshot.val();
-        // 5秒以内の有効なデータのみ処理
         if (data && data.timestamp > (Date.now() - 5000)) { 
-            // データが正常に取得できなかった場合の安全対策
             let total = data.totalCount !== undefined ? data.totalCount : 1;
             let lap = data.lap !== undefined ? data.lap : 1;
             let current = data.currentCount !== undefined ? data.currentCount : 1;
 
-            // もしリセット信号(totalが0)なら1回目として強制表示
             if (total === 0) {
                 showCountScreen(1, 1, 1);
             } else {
@@ -212,7 +209,8 @@
     });
 
     function showCountScreen(total, lap, current) {
-        document.getElementById('welcome-message').style.style.display = 'none';
+        // 【修正箇所】style.style になっていたタイポを style のみに綺麗に直しました
+        document.getElementById('welcome-message').style.display = 'none';
         document.getElementById('qrcode-area').style.display = 'none';
 
         document.getElementById('count-area').style.display = 'block';
@@ -220,17 +218,15 @@
         document.getElementById('clear-btn').style.display = 'inline-block';
         document.getElementById('reset-btn').innerText = "次の案内へ進む";
 
-        // 周回数と回数の書き換え
         document.getElementById('lap-display').innerText = lap + "周目 (通算 " + total + " 回目)";
         document.getElementById('count-display').innerText = current + "回目";
 
-        // 配色切り替え
         let colorIndex = (current - 1) % STAGE_COLORS.length;
         if(colorIndex < 0) colorIndex = 0;
         document.body.style.backgroundColor = STAGE_COLORS[colorIndex].bg;
         document.body.style.color = STAGE_COLORS[colorIndex].text;
+        document.getElementById('lap-display').style.color = STAGE_COLORS[colorIndex].text;
 
-        // 2周目以降の演出（水玉 ＆ 🌸）
         const flowers = document.querySelectorAll('.flower');
         if (lap >= 2) {
             document.body.classList.add('dot-pattern');
