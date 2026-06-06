@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>店舗用一括モニター</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+            text-align: center;
+            margin: 0; padding: 0;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            height: 100vh; 
+            transition: background-color 0.4s, color 0.4s;
+            background-color: #D1E7DD; /* 初期状態は1回目の緑 */
+            color: #0f5132;
+        }
+        .box {
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 40px; 
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
+            min-width: 320px;
+            box-sizing: border-box;
+        }
+        h1 { 
+            font-size: 4rem; 
+            margin: 0 0 10px 0; 
+            font-weight: bold; 
+        }
+        p { 
+            font-size: 1.4rem; 
+            margin: 0 0 30px 0; 
+            font-weight: bold; 
+        }
+        #qrcode { 
+            margin: 0 auto; 
+            padding: 15px; 
+            background: #fff; 
+            display: inline-block;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h1 id="count-display">1回目</h1>
+    <p>のご来店</p>
+
+    <div id="qrcode"></div>
+</div>
+
+<script>
+    // 提供いただいたFirebaseの設定
+    const firebaseConfig = {
+        apiKey: "AIzaSyDviyxxPk0ImXKBqClAwijH4jb_gYGR3rI",
+        authDomain: "ozo1111.firebaseapp.com",
+        databaseURL: "https://ozo1111-default-rtdb.firebaseio.com", 
+        projectId: "ozo1111",
+        storageBucket: "ozo1111.firebasestorage.app",
+        messagingSenderId: "227549240271",
+        appId: "1:227549240271:web:6c10dd8a11dac858b190ba"
+    };
+
+    // Firebaseの初期化
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // 同じフォルダ内にある card.html へのURLを自動計算してQRコードを表示
+    const currentUrl = window.location.href;
+    const targetUrl = currentUrl.substring(0, currentUrl.lastIndexOf('/')) + '/card.html';
+    new QRCode(document.getElementById("qrcode"), { text: targetUrl, width: 220, height: 220 });
+
+    // 来店回数ごとの背景色・文字色
+    const STAGE_COLORS = [
+        { bg: "#D1E7DD", text: "#0f5132" }, // 1回目：緑
+        { bg: "#CFF4FC", text: "#055160" }, // 2回目：青
+        { bg: "#FFF3CD", text: "#664d03" }, // 3回目：黄
+        { bg: "#F8D7DA", text: "#842029" }, // 4回目：赤
+        { bg: "#E2D9F3", text: "#563d7c" }  // 5回目：紫
+    ];
+
+    // お客さんがスキャンしたデータをリアルタイムに監視
+    database.ref('latest_scan').on('value', (snapshot) => {
+        const data = snapshot.val();
+        // 5秒以内に送信された新しいデータがあれば、画面の回数と色を更新
+        if (data && data.timestamp > (Date.now() - 5000)) { 
+            updateStoreScreen(data.count);
+        }
+    });
+
+    function updateStoreScreen(count) {
+        // 画面の数字を書き換え
+        document.getElementById('count-display').innerText = count + "回目";
+
+        // 回数に合わせて背景色と文字色を切り替える（5回以上はループ）
+        let colorIndex = (count - 1) % STAGE_COLORS.length;
+        document.body.style.backgroundColor = STAGE_COLORS[colorIndex].bg;
+        document.body.style.color = STAGE_COLORS[colorIndex].text;
+    }
+</script>
+</body>
+</html>

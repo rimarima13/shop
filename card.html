@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> </title> <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        body {
+            background-color: #ffffff; /* 完全に真っ白 */
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<script>
+    // 提供いただいたFirebaseの設定
+    const firebaseConfig = {
+        apiKey: "AIzaSyDviyxxPk0ImXKBqClAwijH4jb_gYGR3rI",
+        authDomain: "ozo1111.firebaseapp.com",
+        databaseURL: "https://ozo1111-default-rtdb.firebaseio.com",
+        projectId: "ozo1111",
+        storageBucket: "ozo1111.firebasestorage.app",
+        messagingSenderId: "227549240271",
+        appId: "1:227549240271:web:6c10dd8a11dac858b190ba"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    (function() {
+        try {
+            // お客さんのスマホ内の来店回数を読み込んで+1
+            let count = parseInt(localStorage.getItem('v_count')) || 0;
+            count++;
+            localStorage.setItem('v_count', count);
+
+            // お店の端末へデータを送信
+            database.ref('latest_scan').set({
+                count: count,
+                timestamp: Date.now()
+            }).then(() => {
+                // 送信完了後、可能であれば自動でタブを閉じる
+                window.close();
+            }).catch((error) => {
+                // エラー時も何も表示しない
+            });
+
+        } catch (e) {
+            // エラー時も何も表示しない
+        }
+    })();
+</script>
+</body>
+</html>
