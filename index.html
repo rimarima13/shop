@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>店舗用一括モニター</title>
+    <title>店舗用一括モニター（快適最適化版）</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Firebaseのプログラム -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             text-align: center;
             margin: 0; padding: 0;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -18,6 +19,7 @@
             background-color: #f8f9fa; 
             color: #212529;
             position: relative;
+            overflow: hidden;
         }
 
         /* 2周目以降用の水玉模様 */
@@ -25,7 +27,7 @@
             content: "";
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-image: radial-gradient(rgba(0, 0, 0, 0.08) 20%, transparent 20%);
+            background-image: radial-gradient(rgba(0, 0, 0, 0.06) 20%, transparent 20%);
             background-size: 30px 30px; 
             opacity: 0; 
             transition: opacity 0.4s;
@@ -35,47 +37,55 @@
             opacity: 1;
         }
 
-        /* 【新設】画面右上のシステム再起動ボタン */
+        /* 右上のシステム再起動ボタン */
         #system-reload-btn {
             position: absolute;
             top: 15px;
             right: 15px;
-            padding: 8px 15px;
+            padding: 8px 16px;
             font-size: 0.9rem;
+            font-weight: bold;
             background-color: #6c757d;
             color: #fff;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
-            opacity: 0.6;
+            opacity: 0.5;
             z-index: 10;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            width: auto; /* グループボタンと連動させない */
+            transition: opacity 0.2s;
+            width: auto;
         }
         #system-reload-btn:hover {
             opacity: 1;
         }
 
         .box {
-            background: rgba(255, 255, 255, 0.95); 
-            padding: 40px; 
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
-            min-width: 340px;
+            background: rgba(255, 255, 255, 0.98); 
+            padding: 45px 40px; 
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
+            min-width: 360px;
             box-sizing: border-box;
             z-index: 1;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+        /* 更新時に箱をバウンドさせる演出 */
+        .box.pop-effect {
+            transform: scale(1.05);
+        }
+
         #welcome-message {
-            font-size: 1.8rem;
+            font-size: 2rem;
             font-weight: bold;
-            margin: 0 0 30px 0;
+            margin: 0 0 35px 0;
             white-space: pre-wrap;
+            line-height: 1.4;
         }
         #count-area {
             display: none; 
         }
         #lap-display {
-            font-size: 1.6rem;
+            font-size: 1.8rem;
             font-weight: bold;
             margin: 0;
         }
@@ -84,60 +94,81 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            margin: 10px 0;
+            gap: 15px;
+            margin: 15px 0;
         }
         h1 { 
-            font-size: 5rem; 
+            font-size: 6.5rem; /* 視認性向上のため巨大化 */
             margin: 0; 
-            font-weight: bold; 
+            font-weight: 900; 
+            line-height: 1;
         }
         .flower {
-            font-size: 3.5rem;
+            font-size: 4rem;
             display: none; 
-            animation: pop 0.5s ease;
+            animation: pop 0.5s ease forwards;
         }
         @keyframes pop {
-            0% { transform: scale(0); }
-            100% { transform: scale(1); }
+            0% { transform: scale(0) rotate(-20deg); }
+            100% { transform: scale(1) rotate(0deg); }
         }
 
         .sub-text { 
-            font-size: 1.6rem; 
-            margin: 0 0 30px 0; 
+            font-size: 1.8rem; 
+            margin: 0 0 35px 0; 
             font-weight: bold; 
         }
+
+        /* iPhoneリロード問題用の警告バッジ */
+        #warning-badge {
+            display: none;
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            animation: shake 0.5s ease;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
         #qrcode-area {
             display: block;
         }
         #qrcode { 
             margin: 0 auto; 
-            padding: 15px; 
+            padding: 18px; 
             background: #fff; 
             display: inline-block;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-radius: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
         }
         .btn-group {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
             align-items: center;
-            margin-top: 25px;
+            margin-top: 30px;
         }
         button {
-            padding: 12px 30px;
-            font-size: 1.2rem;
+            padding: 14px 32px;
+            font-size: 1.3rem;
             font-weight: bold;
             border: none;
             border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.12);
             transition: transform 0.1s, opacity 0.2s;
-            width: 80%;
+            width: 85%;
         }
         button:active {
-            transform: scale(0.95);
+            transform: scale(0.96);
         }
         #reset-btn {
             display: none;
@@ -153,11 +184,17 @@
 </head>
 <body>
 
+<!-- 右上のシステム再起動ボタン -->
 <button id="system-reload-btn" onclick="systemRestart()">⚙️ 再起動</button>
 
-<div class="box">
+<div class="box" id="main-box">
+    <!-- 待機中メッセージ -->
     <div id="welcome-message">QRコードを<br>スキャンしてください</div>
 
+    <!-- 警告バッジエリア -->
+    <div id="warning-badge">⚠️ お客さんの端末が初期化された可能性があります</div>
+
+    <!-- 回数表示 -->
     <div id="count-area">
         <p id="lap-display">1周目</p>
         <div class="count-wrapper">
@@ -168,10 +205,12 @@
         <p class="sub-text">のご来店</p>
     </div>
 
+    <!-- QRコード -->
     <div id="qrcode-area">
         <div id="qrcode"></div>
     </div>
 
+    <!-- ボタンエリア -->
     <div class="btn-group">
         <button id="reset-btn" onclick="resetToHome()">次の案内へ進む</button>
         <button id="clear-btn" onclick="triggerResetMode()">この人の回数をリセット</button>
@@ -214,7 +253,9 @@
         { bg: "#D9E1F2", text: "#1f4e78" }  
     ];
 
-    // 通信監視の開始関数
+    let autoResetTimer = null;
+
+    // 通信監視
     function startListening() {
         database.ref('latest_scan').on('value', (snapshot) => {
             const data = snapshot.val();
@@ -222,20 +263,31 @@
                 let total = data.totalCount !== undefined ? data.totalCount : 1;
                 let lap = data.lap !== undefined ? data.lap : 1;
                 let current = data.currentCount !== undefined ? data.currentCount : 1;
+                let isResetPossible = data.isResetPossible || false;
 
                 if (total === 0) {
-                    showCountScreen(1, 1, 1);
+                    showCountScreen(1, 1, 1, isResetPossible);
                 } else {
-                    showCountScreen(total, lap, current);
+                    showCountScreen(total, lap, current, isResetPossible);
                 }
             }
         });
     }
 
-    // 最初に監視を起動
     startListening();
 
-    function showCountScreen(total, lap, current) {
+    function showCountScreen(total, lap, current, isResetPossible) {
+        // 5分間の放置自動リセットタイマーを始動
+        stopAutoResetTimer();
+        startAutoResetTimer();
+
+        // 画面のバウンド演出
+        const box = document.getElementById('main-box');
+        box.classList.remove('pop-effect');
+        void box.offsetWidth; 
+        box.classList.add('pop-effect');
+        setTimeout(() => box.classList.remove('pop-effect'), 300);
+
         document.getElementById('welcome-message').style.display = 'none';
         document.getElementById('qrcode-area').style.display = 'none';
 
@@ -246,6 +298,13 @@
 
         document.getElementById('lap-display').innerText = lap + "周目 (通算 " + total + " 回目)";
         document.getElementById('count-display').innerText = current + "回目";
+
+        // iPhoneプライベートモード等の警告検知
+        if (isResetPossible && current === 1) {
+            document.getElementById('warning-badge').style.display = 'block';
+        } else {
+            document.getElementById('warning-badge').style.display = 'none';
+        }
 
         let colorIndex = (current - 1) % STAGE_COLORS.length;
         if(colorIndex < 0) colorIndex = 0;
@@ -264,6 +323,7 @@
     }
 
     function resetToHome() {
+        stopAutoResetTimer();
         qrGenerator.clear();
         qrGenerator.makeCode(normalUrl);
 
@@ -273,6 +333,7 @@
         document.getElementById('count-area').style.display = 'none';
         document.getElementById('reset-btn').style.display = 'none';
         document.getElementById('clear-btn').style.display = 'none';
+        document.getElementById('warning-badge').style.display = 'none';
 
         document.body.classList.remove('dot-pattern');
         const flowers = document.querySelectorAll('.flower');
@@ -283,6 +344,7 @@
     }
 
     function triggerResetMode() {
+        stopAutoResetTimer();
         qrGenerator.clear();
         qrGenerator.makeCode(resetUrl);
 
@@ -292,6 +354,7 @@
         
         document.getElementById('count-area').style.display = 'none';
         document.getElementById('clear-btn').style.display = 'none';
+        document.getElementById('warning-badge').style.display = 'none';
         document.getElementById('reset-btn').innerText = "キャンセルして戻る";
         document.getElementById('reset-btn').style.display = 'inline-block';
 
@@ -300,29 +363,37 @@
         document.body.style.color = '#664d03';
     }
 
-    /* 【新機能】ワンタップシステム再起動処理 */
+    // 放置防止タイマー
+    function startAutoResetTimer() {
+        autoResetTimer = setTimeout(() => {
+            resetToHome();
+        }, 300000); // 5分（300,000ミリ秒）
+    }
+
+    function stopAutoResetTimer() {
+        if (autoResetTimer) {
+            clearTimeout(autoResetTimer);
+            autoResetTimer = null;
+        }
+    }
+
+    // ワンタップシステム再起動
     function systemRestart() {
-        // 1. ボタンのテキストを一瞬「再起動中...」にする
         const btn = document.getElementById('system-reload-btn');
         btn.innerText = "⏳ 再起動中...";
         btn.style.opacity = "1";
 
         try {
-            // 2. Firebaseの通信を一度完全に切断して、ゴミデータをクリア
             database.ref('latest_scan').off();
-            
-            // 3. 画面の見た目を完全に初期待機状態に戻す
             resetToHome();
 
-            // 4. 0.5秒後にFirebaseと再接続して監視をスタート
             setTimeout(() => {
                 startListening();
                 btn.innerText = "⚙️ 再起動";
-                btn.style.opacity = "0.6";
+                btn.style.opacity = "0.5";
             }, 500);
 
         } catch(e) {
-            // 万が一の時は最終手段としてブラウザ丸ごと強制リロード
             window.location.reload();
         }
     }
